@@ -1,0 +1,5 @@
+env/
+data/
+.devcontainer/
+src/__pycache__/
+models/
