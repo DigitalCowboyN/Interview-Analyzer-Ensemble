@@ -1,5 +1,6 @@
 env/
 data/
-.devcontainer/
+.devcontainer
 src/__pycache__/
 models/
+logs/

@@ -1,0 +1,47 @@
+# # config.yaml. Stores all the tunable parameters and settings outside code
+
+# Preprocessing settings (e.g., context window size, spaCy custom rules).
+# Embedding settings (model name, dimension, etc.).
+# Clustering parameters (HDBSCAN's min_cluster_size, distance metric).
+# Classification prompts and thresholds for local/global conflict resolution.
+# File paths (e.g., where to find interview transcripts, where to save intermediate outputs).
+
+preprocessing:
+  context_window: 1            # Number of sentences before/after to include for context
+  custom_spacy_rules: []       # List any custom rules if needed (e.g., regex patterns)
+
+embedding:
+  model_name: "all-MiniLM-L6-v2"  # Sentence Transformer model name
+  embedding_dim: 384            # (Optional) Dimensionality of the embeddings
+
+clustering:
+  algorithm: "HDBSCAN"
+  hdbscan:
+    min_cluster_size: 5        # Minimum cluster size for HDBSCAN
+    metric: "euclidean"        # Distance metric for clustering
+    # You can add additional HDBSCAN parameters here if needed
+
+classification:
+  local:
+    model: "LLaMA-2"           # Indicate which model is being used (for reference)
+    prompt: "Your LLaMA-2 local classification prompt goes here."
+    confidence_threshold: 0.8  # Threshold above which to trust local classification
+  global:
+    prompt: "Your LLaMA-2 global (thematic) classification prompt goes here."
+  final:
+    final_weight_local: 0.6    # Weight for local classification output in conflict resolution
+    final_weight_global: 0.4   # Weight for global classification output in conflict resolution
+
+paths:
+  data_dir: "data/interviews"  # Directory where transcript files are stored
+  logs_dir: "logs"             # Directory for log files
+  output_dir: "output"         # Directory to store intermediate and final outputs
+
+docker:
+  base_image: "ghcr.io/ggerganov/llama.cpp:light"
+  python_version: "3.10"       # Python version used in the Docker container
+
+# Additional parameters for future enhancements (e.g., fine-tuning, API endpoints, etc.)
+additional:
+  use_weighted_context: true   # Whether to use weighted averaging for context embeddings
+  visualize_embeddings: false  # Whether to generate embedding visualizations (e.g., PCA/t-SNE)
