@@ -1,4 +1,5 @@
 import os
+import glob
 import argparse
 import logging
 from utils import setup_logger, create_dir, save_json, load_yaml
@@ -26,48 +27,55 @@ def main():
     create_dir(config["paths"]["logs_dir"])
     create_dir(config["paths"]["output_dir"])
 
-    # Parse command-line arguments for input file
-    parser = argparse.ArgumentParser(description="Interview Analyzer Ensemble Pipeline")
-    parser.add_argument("--input_file", type=str, default="data/interviews/sample_interview.txt",
-                        help="Path to the input transcript file")
-    args = parser.parse_args()
-    input_file = args.input_file
-    logger.info(f"Processing input file: {input_file}")
+    # Use glob to find all .txt files in the data directory
+    data_dir = config["paths"]["data_dir"]
+    txt_files = glob.glob(os.path.join(data_dir, "*.txt"))
 
-    # Read the transcript file
-    with open(input_file, "r", encoding="utf-8") as f:
-        text = f.read()
+    if not txt_files:
+        logger.warning(f"No .txt files found in {data_dir}.")
+        return
 
-    # Step 1: Sentence Segmentation
-    sentences = segment_text(text)
-    logger.info(f"Segmented text into {len(sentences)} sentences.")
+    for input_file in txt_files:
+        logger.info(f"Processing input file: {input_file}")
+        
+        # Read the transcript file
+        with open(input_file, "r", encoding="utf-8") as f:
+            text = f.read()
 
-    # Step 2: Generate embeddings with context
-    embeddings = generate_embeddings(sentences, context_window=config["preprocessing"]["context_window"])
-    logger.info("Generated embeddings for all sentences.")
+        # Step 1: Sentence segmentation
+        sentences = segment_text(text)
+        logger.info(f"Segmented text into {len(sentences)} sentences.")
 
-    # Step 3: Local Classification using LLaMA-2 (via prompt engineering)
-    df_local = classify_local(sentences, embeddings, config)
-    logger.info("Completed local classification.")
+        # Step 2: Generate embeddings with context
+        embeddings = generate_embeddings(sentences, context_window=config["preprocessing"]["context_window"])
+        logger.info("Generated embeddings for all sentences.")
 
-    # Step 4: Global Thematic Clustering and Classification
-    cluster_labels = cluster_sentences(embeddings, config)
-    df_global = classify_global(sentences, embeddings, cluster_labels, config)
-    logger.info("Completed global classification.")
+        # Step 3: Local Classification using LLaMA-2 (via prompt engineering)
+        df_local = classify_local(sentences, embeddings, config)
+        logger.info("Completed local classification.")
 
-    # Step 5: Merge local and global outputs with conflict resolution
-    merged_df = merge_local_global(df_local, df_global, config)
-    logger.info("Merged local and global outputs.")
+        # Step 4: Global Thematic Clustering and Classification
+        cluster_labels = cluster_sentences(embeddings, config)
+        df_global = classify_global(sentences, embeddings, cluster_labels, config)
+        logger.info("Completed global classification.")
 
-    # Step 6: Final Meta-Classification
-    final_df = final_classification(merged_df, config)
-    logger.info("Final classification complete.")
+        # Step 5: Merge local and global outputs with conflict resolution
+        merged_df = merge_local_global(df_local, df_global, config)
+        logger.info("Merged local and global outputs.")
 
-    # Save final output as JSON in the output directory
-    output_path = os.path.join(config["paths"]["output_dir"], "final_output.json")
-    final_output = final_df.to_dict(orient="records")
-    save_json(final_output, output_path)
-    logger.info(f"Final output saved to {output_path}")
+        # Step 6: Final Meta-Classification
+        final_df = final_classification(merged_df, config)
+        logger.info("Final classification complete.")
+
+        # Create an output filename based on the input filename
+        base_name = os.path.splitext(os.path.basename(input_file))[0]
+        output_file = f"{base_name}_final_output.json"
+        output_path = os.path.join(config["paths"]["output_dir"], output_file)
+
+        # Save final output as JSON
+        final_output = final_df.to_dict(orient="records")
+        save_json(final_output, output_path)
+        logger.info(f"Final output saved to {output_path}")
 
 if __name__ == "__main__":
     main()
