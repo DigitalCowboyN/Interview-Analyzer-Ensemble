@@ -2,8 +2,8 @@ import os
 import glob
 import argparse
 import logging
-from utils import setup_logger, create_dir, save_json, load_yaml
-from pipeline import (
+from .utils import setup_logger, create_dir, save_json, load_yaml
+from .pipeline import (
     segment_text,
     generate_embeddings,
     classify_local,

@@ -1,5 +1,6 @@
 env/
 data/
+output/
 .devcontainer/
 src/__pycache__/
 models/
