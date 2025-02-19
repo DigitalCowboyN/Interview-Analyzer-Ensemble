@@ -3,7 +3,7 @@ FROM ghcr.io/ggerganov/llama.cpp:light
 #FROM python:3.10
 
 # Set the working directory to your project path
-WORKDIR /workspaces/ai_data_preprocessor
+WORKDIR /workspaces/interview_analyzer_ensemble
 
 RUN apt-get update && apt-get install -y \
      ffmpeg \
@@ -26,14 +26,20 @@ RUN apt-get update && apt-get install -y \
 # #     cd /opt/llama.cpp && \
 # #     make
 
+RUN pip install --upgrade pip
+
 # # Set llama.cpp as globally available
-ENV LD_LIBRARY_PATH="/app:$LD_LIBRARY_PATH"
+ENV LD_LIBRARY_PATH="/usr/local/lib/python3.10/dist-packages/ctransformers/lib/basic:/app:$LD_LIBRARY_PATH"
 
 # Copy the project files
 COPY . .
 
 # # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the ctransformers shared library to a standard location (/usr/lib)
+# RUN cp /usr/local/lib/python3.10/dist-packages/ctransformers/lib/basic/libctransformers.so /usr/lib/ \
+#     && chmod +x /usr/lib/libctransformers.so
 
 # # Command to run when the container starts
 CMD ["python", "src/main.py"]

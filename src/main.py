@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+if __name__ == "__main__" and __package__ is None:
+    import os
+    import sys
+    # Add the parent directory to sys.path so that 'src' is recognized as a package.
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    __package__ = "src"
+
 import os
 import glob
 import argparse

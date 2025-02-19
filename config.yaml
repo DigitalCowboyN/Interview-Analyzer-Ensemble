@@ -24,10 +24,40 @@ clustering:
 classification:
   local:
     model: "LLaMA-2"           # Indicate which model is being used (for reference)
-    prompt: "Your LLaMA-2 local classification prompt goes here."
+    # Prmopt for local classification
+    prompt: |
+      [INSTRUCTION]
+      You are an expert transcript analyzer specializing in the classification of conversational content. Your task is to analyze a single sentence extracted from an interview transcript, taking into account its immediate context, and assign a concise topic label that best captures the main subject of that sentence.
+
+      [FORMAT]
+      - **Input Sentence:** The sentence to be classified is provided within double quotation marks.
+      - **Context:** Additional surrounding context is provided in square brackets.
+      - **Output:** Your answer should be a single, succinct topic label enclosed in angle brackets. Do not include any extra commentary or explanation.
+
+      [EXAMPLE]
+      Input Sentence: "I believe our current marketing strategy needs an overhaul."
+      Context: [Previous sentence: "We have been struggling with low engagement for months."; Next sentence: "The new campaign might bring fresh ideas."]
+      Output: <Marketing Strategy>
+
+      [TASK]
+      For the given input, analyze the content carefully and return only the topic label in the specified format.
     confidence_threshold: 0.8  # Threshold above which to trust local classification
   global:
-    prompt: "Your LLaMA-2 global (thematic) classification prompt goes here."
+  # Prompt for global classification
+    prompt: |
+      [INSTRUCTION]
+      You are a seasoned transcript analyst specializing in thematic clustering. Your task is to review an aggregated summary representing a cluster of sentences from an interview transcript. Based on this summary, determine a single, overarching thematic label that best encapsulates the common subject matter of the cluster.
+
+      [FORMAT]
+      - **Cluster Summary:** The summary is provided within double quotation marks.
+      - **Output:** Your response should be a single, succinct thematic label enclosed in angle brackets. No additional commentary or explanation is allowed.
+
+      [EXAMPLE]
+      Cluster Summary: "Discussions cover new marketing strategies, challenges in customer engagement, and innovative ideas for digital campaigns."
+      Output: <Marketing & Customer Engagement>
+
+      [TASK]
+      Analyze the provided cluster summary carefully and return only the thematic label in the specified format.
   final:
     final_weight_local: 0.6    # Weight for local classification output in conflict resolution
     final_weight_global: 0.4   # Weight for global classification output in conflict resolution
