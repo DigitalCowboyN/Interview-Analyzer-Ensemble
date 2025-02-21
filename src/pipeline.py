@@ -397,9 +397,10 @@ def merge_local_global(df_local, df_global, config):
     merged_df = pd.merge(df_local, df_global, on="id", how="left")
     merged_df["final_label"] = merged_df.apply(
         lambda row: resolve_conflict(
-            row["local_label"],
+            row["local_label_with_context"],      # Updated reference
             row["global_label"],
-            row["local_confidence"],
+            row["local_confidence_with_context"],   # Updated reference
+            row["global_confidence"] if "global_confidence" in row else 1.0,  # If available; otherwise assume max confidence.
             config
         ),
         axis=1
@@ -407,27 +408,38 @@ def merge_local_global(df_local, df_global, config):
     logger.info("Merging and conflict resolution completed.")
     return merged_df
 
-def resolve_conflict(local_label, global_label, local_confidence, config):
+def resolve_conflict(local_label, global_label, local_confidence, global_confidence, config):
     """
     Resolve conflicts between local and global labels using weighted rules.
+    
+    The function computes a weighted score for both local and global predictions
+    based on their confidence and configured weights. If a classifier's confidence is
+    below its threshold, its contribution is set to zero.
     
     Args:
         local_label (str): Label predicted at the local level.
         global_label (str): Label predicted at the global (cluster) level.
         local_confidence (float): Confidence score from local classification.
+        global_confidence (float): Confidence score from global classification.
         config (dict): Configuration parameters including thresholds and weights.
     
     Returns:
         str: The final chosen label.
     """
-    threshold = config["classification"]["local"].get("confidence_threshold", 0.8)
+    local_threshold = config["classification"]["local"].get("confidence_threshold", 0.8)
+    global_threshold = config["classification"]["global"].get("confidence_threshold", 0.6)
     weight_local = config["classification"]["final"].get("final_weight_local", 0.6)
     weight_global = config["classification"]["final"].get("final_weight_global", 0.4)
     
-    if local_confidence >= threshold:
+    local_weighted = weight_local * local_confidence if local_confidence >= local_threshold else 0.0
+    global_weighted = weight_global * global_confidence if global_confidence >= global_threshold else 0.0
+    
+    if local_weighted >= global_weighted and local_weighted > 0:
         return local_label
-    else:
+    elif global_weighted > local_weighted:
         return global_label
+    else:
+        return "Unknown"
 
 ############################################
 # 6. Final Meta-Classification / Post-Processing
@@ -445,7 +457,9 @@ def final_classification(merged_df, config):
         pd.DataFrame: Final DataFrame with classification results.
     """
     logger.info("Performing final meta-classification.")
+    from sklearn.preprocessing import StandardScaler
     scaler = StandardScaler()
-    merged_df["local_conf_norm"] = scaler.fit_transform(merged_df[["local_confidence"]])
+    # Update the reference to the with-context confidence value
+    merged_df["local_conf_norm"] = scaler.fit_transform(merged_df[["local_confidence_with_context"]])
     logger.info("Final classification complete.")
     return merged_df
