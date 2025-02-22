@@ -307,7 +307,7 @@ def classify_global(sentences, embeddings, cluster_labels, config):
         config (dict): Configuration with global classification parameters.
     
     Returns:
-        pd.DataFrame: DataFrame with columns: id, global_label, cluster.
+        pd.DataFrame: DataFrame with columns: id, global_label, global_confidence, cluster.
     """
     logger.info("Performing global thematic classification on clusters.")
     df = pd.DataFrame({
@@ -323,8 +323,9 @@ def classify_global(sentences, embeddings, cluster_labels, config):
     unique_clusters = sorted(df["cluster"].unique())
     for cluster in tqdm(unique_clusters, desc="Global Classification"):
         if cluster == -1:
-            # Outlier cluster – assign a default label.
+            # Outlier cluster – assign a default label and assume full confidence.
             global_label = "Unassigned"
+            global_conf = 1.0
             cluster_ids = df[df["cluster"] == cluster]["id"].tolist()
         else:
             # Get all sentences for the cluster.
@@ -356,7 +357,8 @@ def classify_global(sentences, embeddings, cluster_labels, config):
             except ValueError:
                 confidence = 0.0
             
-            if confidence < global_conf_threshold:
+            global_conf = confidence
+            if global_conf < global_conf_threshold:
                 global_label = "Unknown"
             
             cluster_ids = df[df["cluster"] == cluster]["id"].tolist()
@@ -364,18 +366,22 @@ def classify_global(sentences, embeddings, cluster_labels, config):
         global_results.append({
             "cluster": cluster,
             "global_label": global_label,
+            "global_confidence": global_conf,
             "sentence_ids": cluster_ids
         })
     
-    # Map the global label for each sentence based on its cluster.
+    # Map the global label and confidence for each sentence based on its cluster.
     global_label_map = {}
+    global_conf_map = {}
     for entry in global_results:
         for sid in entry["sentence_ids"]:
             global_label_map[sid] = entry["global_label"]
+            global_conf_map[sid] = entry["global_confidence"]
     
     df["global_label"] = df["id"].apply(lambda x: global_label_map.get(x, "Unassigned"))
+    df["global_confidence"] = df["id"].apply(lambda x: global_conf_map.get(x, 1.0))
     logger.info("Global thematic classification completed.")
-    return df[["id", "global_label", "cluster"]]
+    return df[["id", "global_label", "global_confidence", "cluster"]]
 
 
 ############################################
@@ -397,10 +403,10 @@ def merge_local_global(df_local, df_global, config):
     merged_df = pd.merge(df_local, df_global, on="id", how="left")
     merged_df["final_label"] = merged_df.apply(
         lambda row: resolve_conflict(
-            row["local_label_with_context"],      # Updated reference
+            row["local_label_with_context"],
             row["global_label"],
-            row["local_confidence_with_context"],   # Updated reference
-            row["global_confidence"] if "global_confidence" in row else 1.0,  # If available; otherwise assume max confidence.
+            row["local_confidence_with_context"],
+            row["global_confidence"],
             config
         ),
         axis=1
@@ -441,6 +447,7 @@ def resolve_conflict(local_label, global_label, local_confidence, global_confide
     else:
         return "Unknown"
 
+
 ############################################
 # 6. Final Meta-Classification / Post-Processing
 ############################################
@@ -459,7 +466,6 @@ def final_classification(merged_df, config):
     logger.info("Performing final meta-classification.")
     from sklearn.preprocessing import StandardScaler
     scaler = StandardScaler()
-    # Update the reference to the with-context confidence value
     merged_df["local_conf_norm"] = scaler.fit_transform(merged_df[["local_confidence_with_context"]])
     logger.info("Final classification complete.")
     return merged_df
